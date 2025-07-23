@@ -6,7 +6,7 @@ Thank you for your interest in contributing to Visaire CLI! This document provid
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/visaire/visaire-cli.git
+   git clone https://github.com/shoryakumar/visaire-cli.git
    cd visaire-cli
    ```
 

@@ -1,50 +1,50 @@
 {
-  "name": "visaire",
-  "version": "1.0.0",
-  "description": "A CLI tool for interacting with large language models (Claude, Gemini, GPT) through their APIs",
-  "main": "bin/visaire.js",
-  "bin": {
-    "visaire": "./bin/visaire.js"
-  },
-  "scripts": {
-    "start": "node bin/visaire.js",
-    "test": "jest",
-    "lint": "eslint .",
-    "prepare": "echo 'Package prepared'"
-  },
-  "keywords": [
-    "cli",
-    "ai",
-    "llm",
-    "claude",
-    "gemini",
-    "gpt",
-    "openai",
-    "anthropic",
-    "google"
-  ],
-  "author": "Your Name <your.email@example.com>",
-  "license": "MIT",
-  "engines": {
-    "node": ">=16.0.0"
-  },
-  "dependencies": {
-    "commander": "^11.1.0",
-    "chalk": "^4.1.2",
-    "ora": "^5.4.1",
-    "axios": "^1.6.2",
-    "os": "^0.1.2"
-  },
-  "devDependencies": {
-    "jest": "^29.7.0",
-    "eslint": "^8.55.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/YOURUSERNAME/visaire-cli.git"
-  },
-  "bugs": {
-    "url": "https://github.com/YOURUSERNAME/visaire-cli/issues"
-  },
-  "homepage": "https://github.com/YOURUSERNAME/visaire-cli#readme"
+    "name": "visaire",
+    "version": "1.0.0",
+    "description": "A CLI tool for interacting with large language models (Claude, Gemini, GPT) through their APIs",
+    "main": "bin/visaire.js",
+    "bin": {
+        "visaire": "./bin/visaire.js"
+    },
+    "scripts": {
+        "start": "node bin/visaire.js",
+        "test": "jest",
+        "lint": "eslint .",
+        "prepare": "echo 'Package prepared'"
+    },
+    "keywords": [
+        "cli",
+        "ai",
+        "llm",
+        "claude",
+        "gemini",
+        "gpt",
+        "openai",
+        "anthropic",
+        "google"
+    ],
+    "author": "Shorya Kumar <shoryakumarr@gmail.com>",
+    "license": "MIT",
+    "engines": {
+        "node": ">=16.0.0"
+    },
+    "dependencies": {
+        "commander": "^11.1.0",
+        "chalk": "^4.1.2",
+        "ora": "^5.4.1",
+        "axios": "^1.6.2",
+        "os": "^0.1.2"
+    },
+    "devDependencies": {
+        "jest": "^29.7.0",
+        "eslint": "^8.55.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/shoryakumar/visaire-cli.git"
+    },
+    "bugs": {
+        "url": "https://github.com/shoryakumar/visaire-cli/issues"
+    },
+    "homepage": "https://github.com/shoryakumar/visaire-cli#readme"
 }
