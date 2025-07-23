@@ -1,0 +1,33 @@
+# Development files
+test/
+*.test.js
+test-cli.sh
+.eslintrc.json
+
+# Documentation (keeping README.md)
+CONTRIBUTING.md
+plans/
+NPM_PUBLISHING_GUIDE.md
+PUBLISHING_CHECKLIST.md
+READY_TO_PUBLISH.md
+
+# Git and IDE files
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+.npm/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Example files (users should create their own)
+.visairerc.example
+
+# Node modules (already in .gitignore but good to be explicit)
+node_modules/
