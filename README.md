@@ -1,274 +1,231 @@
 # Visaire CLI
 
-A powerful command-line interface for interacting with Large Language Models (LLMs) including Claude, Gemini, and GPT. Get AI assistance directly in your terminal without any login or cloud syncing required.
+A powerful and user-friendly command-line interface for interacting with Large Language Models (Claude, Gemini, GPT). Get AI assistance directly in your terminal with zero configuration hassle.
 
-## 🚀 Installation
+## 🚀 Quick Start
 
-Install globally via npm:
-
+### 1. Install
 ```bash
 npm install -g visaire
 ```
 
-## 🎯 Quick Start
-
+### 2. Setup (Interactive)
 ```bash
-# Using Claude
-visaire --provider claude --api-key sk-ant-xxx "Explain quantum computing"
-
-# Using GPT
-visaire --provider gpt --api-key sk-xxx "Write a Python function to sort a list"
-
-# Using Gemini
-visaire --provider gemini --api-key your-key "What is machine learning?"
-
-# Piped input
-echo "Build a Node.js server" | visaire --provider gpt --api-key sk-xxx
+visaire setup
 ```
+This will guide you through:
+- Choosing your preferred AI provider
+- Setting up your API key
+- Configuring default settings
+
+### 3. Start Using
+```bash
+visaire "Explain quantum computing"
+```
+
+That's it! 🎉
 
 ## 📖 Usage
 
-### Basic Syntax
+### Basic Commands
 
 ```bash
-visaire [options] <prompt>
-echo "prompt" | visaire [options]
+# Simple question
+visaire "How do I center a div in CSS?"
+
+# Pipe input
+echo "Review this code for bugs" | visaire
+
+# Use specific provider
+visaire --provider gpt "Write a Python function to sort a list"
+
+# Show help
+visaire --help
 ```
-
-### Command Line Options
-
-| Option | Short | Description | Required |
-|--------|-------|-------------|----------|
-| `--provider` | `-p` | LLM provider (claude, gemini, gpt) | Yes* |
-| `--api-key` | `-k` | API key for the provider | Yes* |
-| `--model` | `-m` | Specific model to use | No |
-| `--timeout` | `-t` | Request timeout in milliseconds | No |
-| `--max-tokens` |  | Maximum tokens in response | No |
-| `--temperature` |  | Temperature for response generation (0.0-2.0) | No |
-| `--help` | `-h` | Show help information | No |
-| `--version` | `-v` | Show version information | No |
-
-*Required unless set in configuration file or environment variables
 
 ### Configuration Commands
 
-| Command | Description |
-|---------|-------------|
-| `--config` | Show current configuration |
-| `--config-example` | Create example configuration file |
-| `--config-reset` | Reset configuration to defaults |
-| `--test-key` | Test API key validity |
+```bash
+# Interactive setup (recommended for first-time users)
+visaire setup
+
+# Show current configuration
+visaire config show
+
+# Set API key for a provider
+visaire config set --api-key sk-xxx --provider claude
+
+# Set default provider
+visaire config set --provider claude
+
+# Reset all settings
+visaire config reset
+```
 
 ## ⚙️ Configuration
 
-### Configuration File
+### Option 1: Interactive Setup (Recommended)
+```bash
+visaire setup
+```
 
-Create a `.visairerc` file in your home directory to set default values:
+### Option 2: Manual Configuration
 
+Create `~/.visairerc`:
 ```json
 {
   "defaultProvider": "claude",
-  "timeout": 30000,
-  "maxRetries": 3,
-  "outputFormat": "text"
+  "agent": {
+    "enabled": true
+  }
 }
 ```
 
-### Environment Variables
-
-You can set API keys via environment variables to avoid passing them on the command line:
-
+### Option 3: Environment Variables
 ```bash
 export CLAUDE_API_KEY="sk-ant-your-key-here"
 export GPT_API_KEY="sk-your-openai-key-here"
 export GEMINI_API_KEY="your-google-api-key-here"
 ```
 
-Then use without the `--api-key` flag:
-
-```bash
-visaire --provider claude "Your prompt here"
-```
-
-## 🔧 Examples
-
-### Direct Prompts
-
-```bash
-# Code generation
-visaire -p gpt -k sk-xxx "Write a Python function to calculate fibonacci numbers"
-
-# Text analysis
-visaire -p claude -k sk-ant-xxx "Summarize this article: [paste article text]"
-
-# Creative writing
-visaire -p gemini -k your-key "Write a short story about time travel"
-```
-
-### Piped Input
-
-```bash
-# Analyze code
-cat script.py | visaire -p claude -k sk-ant-xxx "Review this code for bugs"
-
-# Process text files
-echo "Large text content..." | visaire -p gpt -k sk-xxx "Summarize this"
-
-# Chain with other commands
-curl -s https://api.github.com/repos/nodejs/node | visaire -p gemini -k your-key "Explain this GitHub API response"
-```
-
-### Advanced Usage
-
-```bash
-# Use specific model
-visaire -p gpt -k sk-xxx --model gpt-4 "Complex reasoning task"
-
-# Adjust creativity
-visaire -p claude -k sk-ant-xxx --temperature 0.9 "Write creative content"
-
-# Limit response length
-visaire -p gemini -k your-key --max-tokens 500 "Brief explanation needed"
-
-# Custom timeout
-visaire -p gpt -k sk-xxx --timeout 60000 "Long processing task"
-```
-
-## 🔐 Security Best Practices
-
-### API Key Security
-
-⚠️ **Important Security Notes:**
-
-1. **Command-line visibility**: API keys passed via `--api-key` are visible in process lists and shell history
-2. **Recommended approaches**:
-   - Use environment variables: `export CLAUDE_API_KEY="your-key"`
-   - Store in config file with proper permissions: `chmod 600 ~/.visairerc`
-   - Use a secure credential manager
-
-### Configuration File Security
-
-If storing API keys in `.visairerc`, ensure proper file permissions:
-
-```bash
-# Set restrictive permissions (owner read/write only)
-chmod 600 ~/.visairerc
-```
-
-Example secure configuration:
-
-```json
-{
-  "defaultProvider": "claude",
-  "timeout": 30000,
-  "maxRetries": 3
-}
-```
-
-Then use environment variables for API keys.
-
-## 🛠️ API Provider Setup
+## 🔑 Getting API Keys
 
 ### Claude (Anthropic)
-
-1. Sign up at [console.anthropic.com](https://console.anthropic.com)
-2. Generate an API key
-3. API keys start with `sk-ant-`
-
-**Supported Models:**
-- `claude-3-sonnet-20240229` (default)
-- `claude-3-haiku-20240307`
-- `claude-3-opus-20240229`
+1. Visit [console.anthropic.com](https://console.anthropic.com)
+2. Create account and navigate to API Keys
+3. Generate new key (starts with `sk-ant-`)
 
 ### GPT (OpenAI)
-
-1. Sign up at [platform.openai.com](https://platform.openai.com)
-2. Generate an API key
-3. API keys start with `sk-`
-
-**Supported Models:**
-- `gpt-3.5-turbo` (default)
-- `gpt-4`
-- `gpt-4-turbo-preview`
-- `gpt-4-32k`
+1. Visit [platform.openai.com](https://platform.openai.com)
+2. Create account and navigate to API Keys
+3. Generate new key (starts with `sk-`)
 
 ### Gemini (Google)
+1. Visit [Google AI Studio](https://makersuite.google.com)
+2. Sign in and create API key
+3. Copy the generated key
 
-1. Go to [Google AI Studio](https://makersuite.google.com)
-2. Create an API key
-3. Enable the Gemini API
+## 🤖 Agent Mode
 
-**Supported Models:**
-- `gemini-pro` (default)
-- `gemini-pro-vision`
+Visaire includes an intelligent agent that can execute actions based on AI responses:
+
+- **Create files** when AI suggests code
+- **Run commands** when AI provides terminal instructions
+- **Install packages** when AI recommends dependencies
+
+Enable/disable with:
+```bash
+visaire config set --agent-enabled true
+```
+
+## 📋 Command Reference
+
+### Main Options
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--provider, -p` | AI provider (claude/gpt/gemini) | `visaire -p claude "question"` |
+| `--api-key, -k` | API key for provider | `visaire -k sk-xxx "question"` |
+| `--model, -m` | Specific model | `visaire -m gpt-4 "question"` |
+| `--agent` | Enable agent mode | `visaire --agent "create a todo app"` |
+| `--no-agent` | Disable agent mode | `visaire --no-agent "explain code"` |
+
+### Commands
+| Command | Description |
+|---------|-------------|
+| `visaire setup` | Interactive first-time setup |
+| `visaire config show` | Display current configuration |
+| `visaire config set` | Update configuration |
+| `visaire config reset` | Reset to defaults |
+
+## 🔒 Security
+
+### API Key Security
+- **Recommended**: Use `visaire setup` or environment variables
+- **Avoid**: Passing API keys via command line (visible in process lists)
+
+### Agent Security
+- Agent mode includes built-in safety restrictions
+- Commands are filtered for security
+- User confirmation required for destructive actions
+
+## 🛠️ Examples
+
+### Code Generation
+```bash
+visaire "Create a Python function to calculate fibonacci numbers"
+```
+
+### Code Review
+```bash
+cat script.py | visaire "Review this code for potential issues"
+```
+
+### Learning
+```bash
+visaire "Explain the difference between let, const, and var in JavaScript"
+```
+
+### Project Help
+```bash
+visaire "How do I set up a Node.js project with Express and TypeScript?"
+```
+
+### Creative Tasks
+```bash
+visaire "Write a short story about a robot learning to paint"
+```
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
-**"Invalid API key" errors:**
-- Verify your API key is correct and active
-- Check that the key has proper permissions
-- Ensure you're using the right provider
+**"No provider configured"**
+- Run `visaire setup` for interactive configuration
+- Or use `--provider` flag: `visaire --provider claude "question"`
 
-**Network timeouts:**
-- Increase timeout: `--timeout 60000`
-- Check your internet connection
-- Try again later if the provider is experiencing issues
+**"No API key found"**
+- Run `visaire setup` to set API key
+- Or use `visaire config set --api-key <key> --provider <provider>`
 
-**"No prompt provided" errors:**
-- Ensure you're providing a prompt as arguments or via stdin
-- Check that piped input is not empty
+**"Invalid API key format"**
+- Check your API key matches the expected format for your provider
+- Claude: starts with `sk-ant-`
+- OpenAI: starts with `sk-`
+- Gemini: alphanumeric string
 
-**Permission denied on config file:**
-- Check file permissions: `ls -la ~/.visairerc`
-- Fix permissions: `chmod 600 ~/.visairerc`
+**Network/timeout errors**
+- Check internet connection
+- Try again (some providers have temporary issues)
+- Increase timeout: `visaire --timeout 60000 "question"`
 
-### Debug Mode
-
-Enable debug mode for detailed error information:
-
-```bash
-DEBUG=1 visaire --provider claude --api-key sk-xxx "test prompt"
-```
-
-### Testing Your Setup
-
-Test your API key and configuration:
+### Getting Help
 
 ```bash
-# Test API key validity
-visaire --provider claude --api-key sk-ant-xxx --test-key
+# Show all options
+visaire --help
 
 # Show current configuration
-visaire --config
+visaire config show
 
-# Create example configuration
-visaire --config-example
+# Test your API key
+visaire --test-key
+
+# Enable debug mode
+DEBUG=1 visaire "test prompt"
 ```
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🔮 Future Features
+## 🆘 Support
 
-- Custom prompt templates
-- Plugin system for extensibility
-- Response caching
-- Conversation history
-- Batch processing
-- Output format options (JSON, Markdown)
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/visaire/visaire-cli/issues)
+- **Issues**: [GitHub Issues](https://github.com/shoryakumar/visaire-cli/issues)
 - **Documentation**: This README and `visaire --help`
-- **Security**: Report security issues privately
 
 ---
 

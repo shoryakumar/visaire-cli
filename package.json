@@ -1,7 +1,7 @@
 {
     "name": "visaire",
-    "version": "1.1.0",
-    "description": "A CLI tool for interacting with large language models (Claude, Gemini, GPT) through their APIs",
+    "version": "1.2.0",
+    "description": "A user-friendly CLI tool for interacting with large language models (Claude, Gemini, GPT) with zero-config setup",
     "main": "bin/visaire.js",
     "bin": {
         "visaire": "./bin/visaire.js"
@@ -9,7 +9,10 @@
     "scripts": {
         "start": "node bin/visaire.js",
         "test": "jest",
+        "test:watch": "jest --watch",
         "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "setup": "node bin/visaire.js setup",
         "prepare": "echo 'Package prepared'"
     },
     "keywords": [

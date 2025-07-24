@@ -5,6 +5,7 @@ const Utils = require('../lib/utils');
 const Config = require('../lib/config');
 const Providers = require('../lib/providers');
 const Agent = require('../lib/agent');
+const Setup = require('../lib/setup');
 
 const program = new Command();
 const config = new Config();
@@ -40,7 +41,7 @@ async function handleConfigSet(options) {
       Utils.logSuccess(`API key set for ${options.provider}`);
     } else if (options.apiKey) {
       Utils.logError('Provider is required when setting API key');
-      Utils.logInfo('Use: visaire config set --api-key <key> --provider <provider>');
+      Utils.logInfo('Use: visaire config-set --set-api-key <key> --set-provider <provider>');
       process.exit(1);
     }
     
@@ -54,7 +55,7 @@ async function handleConfigSet(options) {
     
     if (Object.keys(settings).length === 0 && !options.apiKey) {
       Utils.logInfo('No configuration changes specified');
-      Utils.logInfo('Available options: --api-key, --provider, --model, --agent-enabled, --auto-approve');
+      Utils.logInfo('Available options: --set-api-key, --set-provider, --set-model, --set-agent-enabled, --set-auto-approve');
     }
     
   } catch (error) {
@@ -64,51 +65,16 @@ async function handleConfigSet(options) {
 }
 
 /**
- * Main CLI application
+ * Handle main command (prompt processing)
  */
-async function main() {
-  // Configure commander
-  program
-    .name('visaire')
-    .description('CLI tool for interacting with Large Language Models')
-    .version(packageJson.version)
-    .option('-p, --provider <provider>', 'LLM provider (claude, gemini, gpt)')
-    .option('-k, --api-key <key>', 'API key for the provider')
-    .option('-m, --model <model>', 'Specific model to use (optional)')
-    .option('-t, --timeout <ms>', 'Request timeout in milliseconds', parseInt)
-    .option('--max-tokens <tokens>', 'Maximum tokens in response', parseInt)
-    .option('--temperature <temp>', 'Temperature for response generation', parseFloat)
-    .option('--agent', 'Enable agentic mode (default: true)')
-    .option('--no-agent', 'Disable agentic mode')
-    .option('--auto-approve', 'Auto-approve agent actions without confirmation')
-    .option('--config', 'Show current configuration')
-    .option('--config-example', 'Create example configuration file')
-    .option('--config-reset', 'Reset configuration to defaults')
-    .option('--test-key', 'Test API key validity')
-    .argument('[prompt...]', 'The prompt to send to the LLM')
-    .helpOption('-h, --help', 'Display help for command');
-
-  // Add config subcommand
-  program
-    .command('config')
-    .description('Manage configuration settings')
-    .command('set')
-    .description('Set configuration values')
-    .option('--api-key <key>', 'Set API key for provider')
-    .option('--provider <provider>', 'Set default provider')
-    .option('--model <model>', 'Set default model')
-    .option('--agent-enabled <boolean>', 'Enable/disable agent mode')
-    .option('--auto-approve <boolean>', 'Enable/disable auto-approval')
-    .action(async (options) => {
-      await handleConfigSet(options);
-    });
-
-  program.parse();
-
-  const options = program.opts();
-  const promptArgs = program.args;
-
+async function handleMainCommand(promptArgs, options) {
   try {
+    // Handle version command
+    if (options.version) {
+      console.log(packageJson.version);
+      return;
+    }
+
     // Handle configuration commands
     if (options.config) {
       config.display();
@@ -134,8 +100,9 @@ async function main() {
     // Determine provider
     const provider = options.provider || appConfig.defaultProvider;
     if (!provider) {
-      Utils.logError('Provider is required. Use --provider or set defaultProvider in .visairerc');
-      Utils.logInfo('Supported providers: claude, gemini, gpt');
+      Utils.logError('No provider configured.');
+      Utils.logInfo('Run "visaire setup" to configure your first provider, or use --provider flag.');
+      Utils.logInfo('Example: visaire --provider claude --api-key sk-ant-xxx "your prompt"');
       process.exit(1);
     }
 
@@ -150,9 +117,12 @@ async function main() {
     // Get API key
     const apiKey = options.apiKey || config.getApiKey(provider);
     if (!apiKey) {
-      Utils.logError('API key is required');
-      Utils.logInfo(`Provide via --api-key flag, config file, or ${provider.toUpperCase()}_API_KEY environment variable`);
-      Utils.logInfo(`Set via: visaire config set --api-key <key> --provider ${provider}`);
+      Utils.logError('No API key found for ' + provider);
+      Utils.logInfo('Set up your API key using one of these methods:');
+      Utils.logInfo('1. Run "visaire setup" for interactive configuration');
+      Utils.logInfo(`2. Use: visaire config-set --set-api-key <key> --set-provider ${provider}`);
+      Utils.logInfo(`3. Set environment variable: ${provider.toUpperCase()}_API_KEY=<key>`);
+      Utils.logInfo('4. Use --api-key flag: visaire --provider ' + provider + ' --api-key <key> "prompt"');
       process.exit(1);
     }
 
@@ -193,8 +163,10 @@ async function main() {
       // No prompt provided
       Utils.logError('No prompt provided');
       Utils.logInfo('Provide a prompt as arguments or pipe input via stdin');
-      Utils.logInfo('Example: visaire --provider claude --api-key sk-xxx "Your prompt here"');
-      Utils.logInfo('Example: echo "Your prompt" | visaire --provider claude --api-key sk-xxx');
+      Utils.logInfo('Examples:');
+      Utils.logInfo('  visaire "Explain quantum computing"');
+      Utils.logInfo('  echo "Write a Python function" | visaire');
+      Utils.logInfo('  visaire --help  # for more options');
       process.exit(1);
     }
 
@@ -305,7 +277,7 @@ async function main() {
       // Provide helpful suggestions based on error type
       if (error.message.includes('Invalid API key')) {
         Utils.logInfo('Double-check your API key and ensure it has the correct permissions');
-        Utils.logInfo(`Set via: visaire config set --api-key <key> --provider ${provider}`);
+        Utils.logInfo(`Set via: visaire config-set --set-api-key <key> --set-provider ${provider}`);
       } else if (error.message.includes('Rate limit')) {
         Utils.logInfo('Wait a moment before trying again, or check your API usage limits');
       } else if (error.message.includes('Network error')) {
@@ -327,6 +299,82 @@ async function main() {
     
     process.exit(1);
   }
+}
+
+/**
+ * Main CLI application
+ */
+async function main() {
+  // Configure commander
+  program
+    .name('visaire')
+    .description('CLI tool for interacting with Large Language Models')
+    .version(packageJson.version)
+    .option('-p, --provider <provider>', 'LLM provider (claude, gemini, gpt)')
+    .option('-k, --api-key <key>', 'API key for the provider')
+    .option('-m, --model <model>', 'Specific model to use (optional)')
+    .option('-t, --timeout <ms>', 'Request timeout in milliseconds', parseInt)
+    .option('--max-tokens <tokens>', 'Maximum tokens in response', parseInt)
+    .option('--temperature <temp>', 'Temperature for response generation', parseFloat)
+    .option('--agent', 'Enable agentic mode (default: true)')
+    .option('--no-agent', 'Disable agentic mode')
+    .option('--auto-approve', 'Auto-approve agent actions without confirmation')
+    .option('--config', 'Show current configuration')
+    .option('--config-example', 'Create example configuration file')
+    .option('--config-reset', 'Reset configuration to defaults')
+    .option('--test-key', 'Test API key validity')
+    .option('--version', 'Show version information')
+    .argument('[prompt...]', 'The prompt to send to the LLM')
+    .action(async (promptArgs, options) => {
+      await handleMainCommand(promptArgs, options);
+    })
+    .helpOption('-h, --help', 'Display help for command');
+
+  // Add setup command
+  program
+    .command('setup')
+    .description('Interactive setup for first-time users')
+    .action(async () => {
+      const setup = new Setup();
+      await setup.run();
+    });
+
+  // Add config subcommands
+  program
+    .command('config-show')
+    .description('Show current configuration')
+    .action(() => {
+      config.display();
+    });
+
+  program
+    .command('config-set')
+    .description('Set configuration values')
+    .option('--set-api-key <key>', 'Set API key for provider')
+    .option('--set-provider <provider>', 'Set default provider')
+    .option('--set-model <model>', 'Set default model')
+    .option('--set-agent-enabled <boolean>', 'Enable/disable agent mode')
+    .option('--set-auto-approve <boolean>', 'Enable/disable auto-approval')
+    .action(async (options) => {
+      // Map the renamed options back to the expected names
+      const mappedOptions = {
+        apiKey: options.setApiKey,
+        provider: options.setProvider,
+        model: options.setModel,
+        agentEnabled: options.setAgentEnabled,
+        autoApprove: options.setAutoApprove
+      };
+      await handleConfigSet(mappedOptions);
+    });
+
+  program
+    .command('config-reset')
+    .description('Reset configuration to defaults')
+    .action(() => {
+      config.reset();
+    });
+
+  program.parse();
 }
 
 // Handle uncaught exceptions and unhandled rejections
