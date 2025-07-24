@@ -35,7 +35,8 @@ describe('Config', () => {
       expect(loadedConfig).toHaveProperty('timeout', 30000);
       expect(loadedConfig).toHaveProperty('agent');
       expect(loadedConfig.agent).toHaveProperty('enabled', true);
-      expect(loadedConfig.agent).toHaveProperty('confirmationEnabled', true);
+      expect(loadedConfig.agent).toHaveProperty('confirmationEnabled', false); // No confirmation for tool execution
+      expect(loadedConfig.agent).toHaveProperty('autoApprove', true); // Auto-approve tool and command execution
     });
 
     test('should load configuration from file when it exists', async () => {

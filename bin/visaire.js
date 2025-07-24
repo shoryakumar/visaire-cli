@@ -31,10 +31,6 @@ async function handleConfigSet(options) {
       settings['agent.enabled'] = options.agentEnabled === 'true';
     }
     
-    if (options.autoApprove !== undefined) {
-      settings['agent.autoApprove'] = options.autoApprove === 'true';
-    }
-    
     if (options.apiKey && options.provider) {
       if (!config.setApiKey(options.provider, options.apiKey)) {
         process.exit(1);
@@ -56,37 +52,13 @@ async function handleConfigSet(options) {
     
     if (Object.keys(settings).length === 0 && !options.apiKey) {
       Utils.logInfo('No configuration changes specified');
-      Utils.logInfo('Available options: --set-api-key, --set-provider, --set-model, --set-agent-enabled, --set-auto-approve');
+      Utils.logInfo('Available options: --set-api-key, --set-provider, --set-model, --set-agent-enabled');
     }
     
   } catch (error) {
     Utils.logError('Configuration error: ' + error.message);
     process.exit(1);
   }
-}
-
-/**
- * Ask user for confirmation
- */
-async function askUserConfirmation(action) {
-  const readline = require('readline');
-  
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-
-    console.log(`\n🔧 Action requires confirmation:`);
-    console.log(`   Tool: ${action.tool}`);
-    console.log(`   Method: ${action.method}`);
-    console.log(`   Parameters: ${JSON.stringify(action.parameters)}`);
-
-    rl.question('Execute this action? (y/N): ', (answer) => {
-      rl.close();
-      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
-    });
-  });
 }
 
 /**
@@ -300,6 +272,9 @@ async function handleMainCommand(promptArgs, options) {
     const autonomousMode = options.autonomous || appConfig.agent?.autonomous === true;
     const effortLevel = options.effort || appConfig.agent?.effort || 'medium';
     
+    // Always auto-approve for immediate tool and command execution
+    const autoApprove = true;
+    
     // For simple prompts without agent mode, use direct provider call
     if (!agentEnabled || (!autonomousMode && !options.agent)) {
       const spinner = new SpinnerManager();
@@ -364,8 +339,8 @@ async function handleMainCommand(promptArgs, options) {
       temperature: options.temperature,
       maxTokens: options.maxTokens,
       effort: effortLevel,
-      autoApprove: options.autoApprove || appConfig.agent?.autoApprove === true,
-      confirmationRequired: !options.autoApprove && appConfig.agent?.confirmationEnabled !== false,
+      autoApprove: autoApprove, // Always true for immediate tool execution
+      confirmationRequired: false, // Disable confirmation for immediate execution
       maxIterations: options.maxIterations || appConfig.agent?.maxIterations || 10,
       logLevel: options.debug ? 'debug' : 'info',
       enableMetrics: true,
@@ -374,15 +349,10 @@ async function handleMainCommand(promptArgs, options) {
       timeout: options.timeout || appConfig.timeout
     });
 
-    // Setup event handlers for user interaction
-    agent.on('confirmation:required', async ({ action, callback }) => {
-      if (!options.autoApprove) {
-        const confirmed = await askUserConfirmation(action);
-        callback(confirmed);
-      } else {
-        callback(true);
-      }
-    });
+    // Setup event handlers for user interaction (disabled for immediate execution)
+    // agent.on('confirmation:required', async ({ action, callback }) => {
+    //   callback(true); // Always approve for immediate tool execution
+    // });
 
     // Handle Ctrl+C gracefully
     const originalHandler = process.listeners('SIGINT')[0];
@@ -422,7 +392,7 @@ async function handleMainCommand(promptArgs, options) {
         
         result = await agent.processPrompt(prompt, {
           effort: effortLevel,
-          autoApprove: options.autoApprove
+          autoApprove: autoApprove // Always true for immediate tool execution
         });
 
         // Display enhanced results
@@ -486,7 +456,6 @@ async function main() {
     .option('--agent', 'Enable enhanced agent mode (default: true)')
     .option('--no-agent', 'Disable agent mode')
     .option('--autonomous', 'Enable autonomous multi-step execution')
-    .option('--auto-approve', 'Auto-approve agent actions without confirmation')
     .option('--effort <level>', 'Reasoning effort level (low, medium, high, maximum)', 'medium')
     .option('--max-iterations <num>', 'Maximum iterations for autonomous mode', parseInt)
     .option('--debug', 'Enable debug logging')
@@ -565,15 +534,13 @@ async function main() {
     .option('--set-provider <provider>', 'Set default provider')
     .option('--set-model <model>', 'Set default model')
     .option('--set-agent-enabled <boolean>', 'Enable/disable agent mode')
-    .option('--set-auto-approve <boolean>', 'Enable/disable auto-approval')
     .action(async (options) => {
       // Map the renamed options back to the expected names
       const mappedOptions = {
         apiKey: options.setApiKey,
         provider: options.setProvider,
         model: options.setModel,
-        agentEnabled: options.setAgentEnabled,
-        autoApprove: options.setAutoApprove
+        agentEnabled: options.setAgentEnabled
       };
       await handleConfigSet(mappedOptions);
     });
