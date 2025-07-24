@@ -1,6 +1,6 @@
 # Visaire CLI
 
-A powerful and user-friendly command-line interface for interacting with Large Language Models (Claude, Gemini, GPT). Get AI assistance directly in your terminal with zero configuration hassle.
+A powerful and user-friendly command-line interface for interacting with Large Language Models (Claude, Gemini, GPT). Get AI assistance directly in your terminal with an interactive conversational experience.
 
 ## 🚀 Quick Start
 
@@ -19,13 +19,46 @@ This will guide you through:
 - Configuring default settings
 
 ### 3. Start Using
+
+#### Interactive Mode (Recommended)
 ```bash
+# Start interactive conversation
+visaire
+
+# Or explicitly use interactive command
+visaire interactive
+```
+
+#### Direct Commands
+```bash
+# Simple question
 visaire "Explain quantum computing"
+
+# Pipe input
+echo "Review this code for bugs" | visaire
+
+# Use specific provider
+visaire --provider gpt "Write a Python function to sort a list"
 ```
 
 That's it! 🎉
 
 ## 📖 Usage
+
+### Interactive Mode (New!)
+
+The interactive mode provides a modern conversational experience:
+
+```bash
+visaire
+```
+
+Features:
+- **Continuous conversation** - Chat naturally with the AI
+- **Conversation history** - Context is maintained throughout the session
+- **Provider switching** - Change providers mid-conversation
+- **Special commands** - Use `/help`, `/clear`, `/history`, `/switch`, `/exit`
+- **Clean interface** - No technical artifacts, just clean responses
 
 ### Basic Commands
 

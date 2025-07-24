@@ -6,6 +6,7 @@ const Config = require('../lib/config');
 const Providers = require('../lib/providers');
 const EnhancedAgent = require('../lib/EnhancedAgent');
 const Setup = require('../lib/setup');
+const SpinnerManager = require('../lib/SpinnerManager');
 
 const program = new Command();
 const config = new Config();
@@ -219,20 +220,35 @@ async function handleMainCommand(promptArgs, options) {
 
     // Test API key if requested
     if (options.testKey) {
-      const spinner = Utils.createSpinner(`Testing ${provider} API key...`);
-      spinner.start();
+      const spinner = new SpinnerManager();
+      spinner.start('Testing API key');
 
       const providers = new Providers(appConfig);
       const isValid = await providers.testApiKey(provider, apiKey);
 
-      spinner.stop();
-      
       if (isValid) {
-        Utils.logSuccess(`${provider} API key is valid and working`);
+        spinner.succeed(`${provider.toUpperCase()} API key is valid and working`);
       } else {
-        Utils.logError(`${provider} API key test failed`);
+        spinner.fail(`${provider.toUpperCase()} API key test failed`);
         process.exit(1);
       }
+      return;
+    }
+
+    // Check if we should enter interactive mode
+    const shouldEnterInteractiveMode = promptArgs.length === 0 && !Utils.isStdinInput();
+    
+    if (shouldEnterInteractiveMode) {
+      // Start interactive session
+      const InteractiveSession = require('../lib/InteractiveSession');
+      const sessionOptions = {
+        model: options.model,
+        maxTokens: options.maxTokens,
+        temperature: options.temperature
+      };
+      
+      const session = new InteractiveSession(appConfig, provider, apiKey, sessionOptions);
+      await session.start();
       return;
     }
 
@@ -284,7 +300,63 @@ async function handleMainCommand(promptArgs, options) {
     const autonomousMode = options.autonomous || appConfig.agent?.autonomous === true;
     const effortLevel = options.effort || appConfig.agent?.effort || 'medium';
     
-    // Create enhanced agent
+    // For simple prompts without agent mode, use direct provider call
+    if (!agentEnabled || (!autonomousMode && !options.agent)) {
+      const spinner = new SpinnerManager();
+      
+      // Start with random thinking message
+      const thinkingMessages = ['Thinking', 'Processing', 'Analyzing', 'Reasoning', 'Computing'];
+      const randomMessage = thinkingMessages[Math.floor(Math.random() * thinkingMessages.length)];
+      spinner.start(randomMessage);
+
+      try {
+        // Update message during processing
+        setTimeout(() => {
+          if (spinner.isRunning()) {
+            spinner.updateMessage('Processing');
+          }
+        }, 1000);
+
+        setTimeout(() => {
+          if (spinner.isRunning()) {
+            spinner.updateMessage('Generating');
+          }
+        }, 2000);
+
+        const providers = new Providers(appConfig);
+        const response = await providers.call(provider, apiKey, prompt, {
+          model: options.model,
+          maxTokens: options.maxTokens,
+          temperature: options.temperature
+        });
+        
+        // Success with timing
+        spinner.succeed(`Response generated in ${spinner.getElapsedTime()}s`);
+        
+        // Clean output without technical artifacts
+        console.log('\n' + response + '\n');
+        
+      } catch (error) {
+        // Error with timing
+        spinner.fail(`Request failed after ${spinner.getElapsedTime()}s`);
+        Utils.logError('Request failed: ' + error.message);
+        
+        // Provide helpful suggestions based on error type
+        if (error.message.includes('Invalid API key')) {
+          Utils.logInfo('Double-check your API key and ensure it has the correct permissions');
+          Utils.logInfo(`Set via: visaire config-set --set-api-key <key> --set-provider ${provider}`);
+        } else if (error.message.includes('Rate limit')) {
+          Utils.logInfo('Wait a moment before trying again, or check your API usage limits');
+        } else if (error.message.includes('Network error')) {
+          Utils.logInfo('Check your internet connection and try again');
+        }
+        
+        process.exit(1);
+      }
+      return;
+    }
+
+    // Use enhanced agent mode for complex tasks
     const agent = new EnhancedAgent({
       provider,
       apiKey,
@@ -355,26 +427,10 @@ async function handleMainCommand(promptArgs, options) {
 
         // Display enhanced results
         displayEnhancedResults(result);
-        
-      } else {
-        // Standard mode - just get LLM response
-        const spinner = Utils.createSpinner(`Sending request to ${provider}...`);
-        spinner.start();
-
-        const providers = new Providers(appConfig);
-        const response = await providers.call(provider, apiKey, prompt, {
-          model: options.model,
-          maxTokens: options.maxTokens,
-          temperature: options.temperature
-        });
-        
-        spinner.stop();
-        console.log(Utils.formatResponse(response, provider));
       }
 
       // Cleanup
       await agent.shutdown();
-      Utils.logSuccess('Request completed successfully');
 
     } catch (error) {
       Utils.logError('Request failed: ' + error.message);
@@ -440,11 +496,50 @@ async function main() {
     .option('--config-reset', 'Reset configuration to defaults')
     .option('--test-key', 'Test API key validity')
     .option('--version', 'Show version information')
-    .argument('[prompt...]', 'The prompt to send to the LLM')
+    .argument('[prompt...]', 'The prompt to send to the LLM (omit for interactive mode)')
     .action(async (promptArgs, options) => {
       await handleMainCommand(promptArgs, options);
     })
     .helpOption('-h, --help', 'Display help for command');
+
+  // Add interactive command
+  program
+    .command('interactive')
+    .description('Start interactive conversation mode')
+    .option('-p, --provider <provider>', 'LLM provider (claude, gemini, gpt)')
+    .option('-m, --model <model>', 'Specific model to use')
+    .option('--max-tokens <tokens>', 'Maximum tokens in response', parseInt)
+    .option('--temperature <temp>', 'Temperature for response generation', parseFloat)
+    .action(async (options) => {
+      // Load configuration
+      const appConfig = config.getConfig({
+        defaultProvider: options.provider
+      });
+
+      const provider = options.provider || appConfig.defaultProvider;
+      if (!provider) {
+        Utils.logError('No provider configured.');
+        Utils.logInfo('Run "visaire setup" to configure your first provider.');
+        process.exit(1);
+      }
+
+      const apiKey = config.getApiKey(provider);
+      if (!apiKey) {
+        Utils.logError('No API key found for ' + provider);
+        Utils.logInfo('Run "visaire setup" to configure your API key.');
+        process.exit(1);
+      }
+
+      const InteractiveSession = require('../lib/InteractiveSession');
+      const sessionOptions = {
+        model: options.model,
+        maxTokens: options.maxTokens,
+        temperature: options.temperature
+      };
+      
+      const session = new InteractiveSession(appConfig, provider, apiKey, sessionOptions);
+      await session.start();
+    });
 
   // Add setup command
   program
