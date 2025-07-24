@@ -1,6 +1,6 @@
 {
     "name": "visaire",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "description": "A fully autonomous agentic CLI tool for interacting with large language models (Claude, Gemini, GPT) that can execute multi-step tasks automatically",
     "main": "bin/visaire.js",
     "bin": {
