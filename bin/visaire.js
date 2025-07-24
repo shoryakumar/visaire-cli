@@ -4,10 +4,64 @@ const { Command } = require('commander');
 const Utils = require('../lib/utils');
 const Config = require('../lib/config');
 const Providers = require('../lib/providers');
+const Agent = require('../lib/agent');
 
 const program = new Command();
 const config = new Config();
 const packageJson = require('../package.json');
+
+/**
+ * Handle config set command
+ */
+async function handleConfigSet(options) {
+  try {
+    const settings = {};
+    
+    if (options.provider) {
+      settings.defaultProvider = options.provider;
+    }
+    
+    if (options.model) {
+      settings.defaultModel = options.model;
+    }
+    
+    if (options.agentEnabled !== undefined) {
+      settings['agent.enabled'] = options.agentEnabled === 'true';
+    }
+    
+    if (options.autoApprove !== undefined) {
+      settings['agent.autoApprove'] = options.autoApprove === 'true';
+    }
+    
+    if (options.apiKey && options.provider) {
+      if (!config.setApiKey(options.provider, options.apiKey)) {
+        process.exit(1);
+      }
+      Utils.logSuccess(`API key set for ${options.provider}`);
+    } else if (options.apiKey) {
+      Utils.logError('Provider is required when setting API key');
+      Utils.logInfo('Use: visaire config set --api-key <key> --provider <provider>');
+      process.exit(1);
+    }
+    
+    if (Object.keys(settings).length > 0) {
+      if (config.setMultiple(settings)) {
+        Utils.logSuccess('Configuration updated successfully');
+      } else {
+        process.exit(1);
+      }
+    }
+    
+    if (Object.keys(settings).length === 0 && !options.apiKey) {
+      Utils.logInfo('No configuration changes specified');
+      Utils.logInfo('Available options: --api-key, --provider, --model, --agent-enabled, --auto-approve');
+    }
+    
+  } catch (error) {
+    Utils.logError('Configuration error: ' + error.message);
+    process.exit(1);
+  }
+}
 
 /**
  * Main CLI application
@@ -24,12 +78,30 @@ async function main() {
     .option('-t, --timeout <ms>', 'Request timeout in milliseconds', parseInt)
     .option('--max-tokens <tokens>', 'Maximum tokens in response', parseInt)
     .option('--temperature <temp>', 'Temperature for response generation', parseFloat)
+    .option('--agent', 'Enable agentic mode (default: true)')
+    .option('--no-agent', 'Disable agentic mode')
+    .option('--auto-approve', 'Auto-approve agent actions without confirmation')
     .option('--config', 'Show current configuration')
     .option('--config-example', 'Create example configuration file')
     .option('--config-reset', 'Reset configuration to defaults')
     .option('--test-key', 'Test API key validity')
     .argument('[prompt...]', 'The prompt to send to the LLM')
     .helpOption('-h, --help', 'Display help for command');
+
+  // Add config subcommand
+  program
+    .command('config')
+    .description('Manage configuration settings')
+    .command('set')
+    .description('Set configuration values')
+    .option('--api-key <key>', 'Set API key for provider')
+    .option('--provider <provider>', 'Set default provider')
+    .option('--model <model>', 'Set default model')
+    .option('--agent-enabled <boolean>', 'Enable/disable agent mode')
+    .option('--auto-approve <boolean>', 'Enable/disable auto-approval')
+    .action(async (options) => {
+      await handleConfigSet(options);
+    });
 
   program.parse();
 
@@ -76,10 +148,11 @@ async function main() {
     }
 
     // Get API key
-    const apiKey = options.apiKey || process.env[`${provider.toUpperCase()}_API_KEY`];
+    const apiKey = options.apiKey || config.getApiKey(provider);
     if (!apiKey) {
       Utils.logError('API key is required');
-      Utils.logInfo(`Provide via --api-key flag or ${provider.toUpperCase()}_API_KEY environment variable`);
+      Utils.logInfo(`Provide via --api-key flag, config file, or ${provider.toUpperCase()}_API_KEY environment variable`);
+      Utils.logInfo(`Set via: visaire config set --api-key <key> --provider ${provider}`);
       process.exit(1);
     }
 
@@ -157,6 +230,9 @@ async function main() {
       }
     });
 
+    // Determine if agent mode is enabled
+    const agentEnabled = options.agent !== false && appConfig.agent?.enabled !== false;
+    
     // Make API call
     const spinner = Utils.createSpinner(`Sending request to ${provider}...`);
     spinner.start();
@@ -168,8 +244,56 @@ async function main() {
       
       spinner.stop();
       
-      // Display response
-      console.log(Utils.formatResponse(response, provider));
+      if (agentEnabled) {
+        // Use agent mode
+        Utils.logInfo('🤖 Agent mode enabled - analyzing response for actionable tasks...');
+        
+        const agent = new Agent({
+          confirmationEnabled: !options.autoApprove && appConfig.agent?.confirmationEnabled !== false,
+          autoApprove: options.autoApprove || appConfig.agent?.autoApprove === true,
+          maxActionsPerPrompt: appConfig.agent?.maxActionsPerPrompt || 10,
+          logger: appConfig.logger
+        });
+
+        // Configure agent with security settings
+        if (appConfig.agent?.toolSecurity) {
+          agent.configure({ toolSecurity: appConfig.agent.toolSecurity });
+        }
+
+        const agentResult = await agent.processPrompt(prompt, response, {
+          provider,
+          model: options.model,
+          timestamp: new Date().toISOString()
+        });
+
+        // Display response
+        console.log(Utils.formatResponse(response, provider));
+        
+        if (agentResult.executed && agentResult.results) {
+          Utils.logInfo('\n🔧 Agent executed the following actions:');
+          
+          agentResult.results.forEach((result, index) => {
+            const status = result.success ? '✅' : '❌';
+            console.log(`${status} ${result.action.type}: ${result.action.source}`);
+            
+            if (!result.success && result.result.error) {
+              Utils.logError(`   Error: ${result.result.error}`);
+            }
+          });
+        } else if (agentResult.actions.length > 0 && !agentResult.executed) {
+          Utils.logInfo(`\n🤖 Agent detected ${agentResult.actions.length} potential action(s) but did not execute them`);
+          if (agentResult.reason) {
+            Utils.logInfo(`   Reason: ${agentResult.reason}`);
+          }
+        }
+
+        // End agent session
+        await agent.endSession();
+        
+      } else {
+        // Standard mode - just display response
+        console.log(Utils.formatResponse(response, provider));
+      }
       
       Utils.logSuccess('Request completed successfully');
       
@@ -181,6 +305,7 @@ async function main() {
       // Provide helpful suggestions based on error type
       if (error.message.includes('Invalid API key')) {
         Utils.logInfo('Double-check your API key and ensure it has the correct permissions');
+        Utils.logInfo(`Set via: visaire config set --api-key <key> --provider ${provider}`);
       } else if (error.message.includes('Rate limit')) {
         Utils.logInfo('Wait a moment before trying again, or check your API usage limits');
       } else if (error.message.includes('Network error')) {

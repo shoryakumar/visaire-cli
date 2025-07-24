@@ -83,7 +83,7 @@ describe('Visaire CLI Tests', () => {
       expect(gptModels).toContain('gpt-3.5-turbo');
 
       const geminiModels = providers.getAvailableModels('gemini');
-      expect(geminiModels).toContain('gemini-pro');
+      expect(geminiModels).toContain('gemini-1.5-pro');
     });
 
     test('should handle invalid provider', async () => {
