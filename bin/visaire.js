@@ -276,7 +276,7 @@ async function handleMainCommand(promptArgs, options) {
     const autoApprove = true;
     
     // For simple prompts without agent mode, use direct provider call
-    if (!agentEnabled || (!autonomousMode && !options.agent)) {
+    if (!agentEnabled) {
       const spinner = new SpinnerManager();
       
       // Start with random thinking message
