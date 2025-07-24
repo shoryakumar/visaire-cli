@@ -12,7 +12,7 @@ describe('EnhancedAgent', () => {
     testDir = path.join(os.tmpdir(), 'visaire-test-' + Date.now());
     await fs.ensureDir(testDir);
     
-    // Initialize enhanced agent with test configuration
+    // Initialize visaire agent with test configuration
     agent = new EnhancedAgent({
       provider: 'claude',
       model: 'claude-3-sonnet-20240229',
@@ -45,7 +45,7 @@ describe('EnhancedAgent', () => {
     it('should initialize with default configuration', () => {
       expect(agent).toBeDefined();
       expect(agent.config).toBeDefined();
-      expect(agent.config.name).toBe('visaire-enhanced-agent');
+      expect(agent.config.name).toBe('visaire-agent');
     });
 
     it('should have core components initialized', () => {

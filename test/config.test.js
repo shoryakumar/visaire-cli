@@ -34,7 +34,7 @@ describe('Config', () => {
       expect(loadedConfig).toHaveProperty('defaultProvider', null);
       expect(loadedConfig).toHaveProperty('timeout', 30000);
       expect(loadedConfig).toHaveProperty('agent');
-      expect(loadedConfig.agent).toHaveProperty('enabled', true);
+      expect(loadedConfig.agent).toHaveProperty('enabled', false); // Agent disabled by default
       expect(loadedConfig.agent).toHaveProperty('confirmationEnabled', false); // No confirmation for tool execution
       expect(loadedConfig.agent).toHaveProperty('autoApprove', true); // Auto-approve tool and command execution
     });

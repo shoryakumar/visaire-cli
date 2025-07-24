@@ -87,7 +87,7 @@ function displayAutonomousResults(result) {
 }
 
 /**
- * Display enhanced agent results
+ * Display visaire agent results
  */
 function displayEnhancedResults(result) {
   // Show LLM response
@@ -216,7 +216,8 @@ async function handleMainCommand(promptArgs, options) {
       const sessionOptions = {
         model: options.model,
         maxTokens: options.maxTokens,
-        temperature: options.temperature
+        temperature: options.temperature,
+        agent: options.agent // Pass agent configuration to interactive session
       };
       
       const session = new InteractiveSession(appConfig, provider, apiKey, sessionOptions);
@@ -268,7 +269,8 @@ async function handleMainCommand(promptArgs, options) {
     }
 
     // Determine agent mode and effort level
-    const agentEnabled = options.agent !== false && appConfig.agent?.enabled !== false;
+    // CLI option takes precedence: if explicitly set to false, disable regardless of config
+    const agentEnabled = options.agent === false ? false : (options.agent === true || appConfig.agent?.enabled === true);
     const autonomousMode = options.autonomous || appConfig.agent?.autonomous === true;
     const effortLevel = options.effort || appConfig.agent?.effort || 'medium';
     
@@ -331,7 +333,7 @@ async function handleMainCommand(promptArgs, options) {
       return;
     }
 
-    // Use enhanced agent mode for complex tasks
+    // Use visaire agent mode for complex tasks
     const agent = new EnhancedAgent({
       provider,
       apiKey,
@@ -386,8 +388,8 @@ async function handleMainCommand(promptArgs, options) {
         displayAutonomousResults(result);
         
       } else if (agentEnabled) {
-        // Use enhanced agent mode
-        Utils.logInfo('🤖 Enhanced agent mode enabled - sophisticated reasoning and planning...');
+        // Use visaire agent mode
+        Utils.logInfo('🤖 Visaire agent mode enabled - sophisticated reasoning and planning...');
         Utils.logInfo(`   Effort level: ${effortLevel}`);
         
         result = await agent.processPrompt(prompt, {
@@ -453,7 +455,7 @@ async function main() {
     .option('-t, --timeout <ms>', 'Request timeout in milliseconds', parseInt)
     .option('--max-tokens <tokens>', 'Maximum tokens in response', parseInt)
     .option('--temperature <temp>', 'Temperature for response generation', parseFloat)
-    .option('--agent', 'Enable enhanced agent mode (default: true)')
+    .option('--agent', 'Enable visaire agent mode (default: false)')
     .option('--no-agent', 'Disable agent mode')
     .option('--autonomous', 'Enable autonomous multi-step execution')
     .option('--effort <level>', 'Reasoning effort level (low, medium, high, maximum)', 'medium')
@@ -503,7 +505,8 @@ async function main() {
       const sessionOptions = {
         model: options.model,
         maxTokens: options.maxTokens,
-        temperature: options.temperature
+        temperature: options.temperature,
+        agent: options.agent // Pass agent configuration to interactive session
       };
       
       const session = new InteractiveSession(appConfig, provider, apiKey, sessionOptions);
