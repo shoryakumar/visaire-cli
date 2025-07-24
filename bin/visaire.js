@@ -4,7 +4,7 @@ const { Command } = require('commander');
 const Utils = require('../lib/utils');
 const Config = require('../lib/config');
 const Providers = require('../lib/providers');
-const Agent = require('../lib/agent');
+const EnhancedAgent = require('../lib/EnhancedAgent');
 const Setup = require('../lib/setup');
 
 const program = new Command();
@@ -61,6 +61,97 @@ async function handleConfigSet(options) {
   } catch (error) {
     Utils.logError('Configuration error: ' + error.message);
     process.exit(1);
+  }
+}
+
+/**
+ * Ask user for confirmation
+ */
+async function askUserConfirmation(action) {
+  const readline = require('readline');
+  
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    console.log(`\n🔧 Action requires confirmation:`);
+    console.log(`   Tool: ${action.tool}`);
+    console.log(`   Method: ${action.method}`);
+    console.log(`   Parameters: ${JSON.stringify(action.parameters)}`);
+
+    rl.question('Execute this action? (y/N): ', (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
+
+/**
+ * Display autonomous session results
+ */
+function displayAutonomousResults(result) {
+  console.log('\n📊 Autonomous Session Summary:');
+  console.log(`   Iterations: ${result.summary.totalIterations}`);
+  console.log(`   Actions executed: ${result.summary.totalActions}`);
+  console.log(`   Files created/modified: ${result.summary.totalFiles}`);
+  console.log(`   Commands run: ${result.summary.totalCommands}`);
+  console.log(`   Processing time: ${Math.round(result.summary.processingTime / 1000)}s`);
+  
+  if (result.summary.totalErrors > 0) {
+    console.log(`   Errors: ${result.summary.totalErrors}`);
+  }
+
+  // Show final response
+  if (result.results.length > 0) {
+    const finalResult = result.results[result.results.length - 1];
+    if (finalResult.response) {
+      console.log('\n📝 Final Response:');
+      console.log(Utils.formatResponse(finalResult.response, 'agent'));
+    }
+  }
+}
+
+/**
+ * Display enhanced agent results
+ */
+function displayEnhancedResults(result) {
+  // Show LLM response
+  if (result.response) {
+    console.log(Utils.formatResponse(result.response, 'agent'));
+  }
+
+  // Show execution summary
+  if (result.summary) {
+    console.log('\n🔧 Execution Summary:');
+    console.log(`   Actions planned: ${result.summary.actionsPlanned}`);
+    console.log(`   Actions executed: ${result.summary.actionsExecuted}`);
+    
+    if (result.summary.filesCreated > 0) {
+      console.log(`   Files created: ${result.summary.filesCreated}`);
+    }
+    
+    if (result.summary.filesModified > 0) {
+      console.log(`   Files modified: ${result.summary.filesModified}`);
+    }
+    
+    if (result.summary.commandsRun > 0) {
+      console.log(`   Commands executed: ${result.summary.commandsRun}`);
+    }
+    
+    if (result.summary.errors > 0) {
+      console.log(`   Errors: ${result.summary.errors}`);
+    }
+  }
+
+  // Show reasoning information if in debug mode
+  if (process.env.DEBUG && result.reasoning) {
+    console.log('\n🧠 Reasoning Details:');
+    console.log(`   Effort level: ${result.reasoning.effort}`);
+    console.log(`   Complexity: ${result.reasoning.complexity?.level || 'unknown'}`);
+    console.log(`   Iterations: ${result.reasoning.iterations}`);
+    console.log(`   Confidence: ${Math.round((result.reasoning.confidence || 0) * 100)}%`);
   }
 }
 
@@ -188,90 +279,104 @@ async function handleMainCommand(promptArgs, options) {
       Utils.logInfo('Consider using environment variables or config file for better security');
     }
 
-    // Prepare provider options
-    const providerOptions = {
-      model: options.model,
+    // Determine agent mode and effort level
+    const agentEnabled = options.agent !== false && appConfig.agent?.enabled !== false;
+    const autonomousMode = options.autonomous || appConfig.agent?.autonomous === true;
+    const effortLevel = options.effort || appConfig.agent?.effort || 'medium';
+    
+    // Create enhanced agent
+    const agent = new EnhancedAgent({
+      provider,
+      apiKey,
+      model: options.model || appConfig.defaultModel,
+      temperature: options.temperature,
       maxTokens: options.maxTokens,
-      temperature: options.temperature
-    };
+      effort: effortLevel,
+      autoApprove: options.autoApprove || appConfig.agent?.autoApprove === true,
+      confirmationRequired: !options.autoApprove && appConfig.agent?.confirmationEnabled !== false,
+      maxIterations: options.maxIterations || appConfig.agent?.maxIterations || 10,
+      logLevel: options.debug ? 'debug' : 'info',
+      enableMetrics: true,
+      enableTracing: options.trace || false,
+      security: appConfig.agent?.toolSecurity || {},
+      timeout: options.timeout || appConfig.timeout
+    });
 
-    // Remove undefined options
-    Object.keys(providerOptions).forEach(key => {
-      if (providerOptions[key] === undefined) {
-        delete providerOptions[key];
+    // Setup event handlers for user interaction
+    agent.on('confirmation:required', async ({ action, callback }) => {
+      if (!options.autoApprove) {
+        const confirmed = await askUserConfirmation(action);
+        callback(confirmed);
+      } else {
+        callback(true);
       }
     });
 
-    // Determine if agent mode is enabled
-    const agentEnabled = options.agent !== false && appConfig.agent?.enabled !== false;
-    
-    // Make API call
-    const spinner = Utils.createSpinner(`Sending request to ${provider}...`);
-    spinner.start();
+    // Handle Ctrl+C gracefully
+    const originalHandler = process.listeners('SIGINT')[0];
+    process.removeAllListeners('SIGINT');
+    process.on('SIGINT', async () => {
+      console.log('\n');
+      Utils.logInfo('Shutting down agent...');
+      try {
+        await agent.shutdown();
+      } catch (error) {
+        // Ignore shutdown errors
+      }
+      process.exit(0);
+    });
 
-    const providers = new Providers(appConfig);
-    
     try {
-      const response = await providers.call(provider, apiKey, prompt, providerOptions);
+      let result;
       
-      spinner.stop();
-      
-      if (agentEnabled) {
-        // Use agent mode
-        Utils.logInfo('🤖 Agent mode enabled - analyzing response for actionable tasks...');
+      if (agentEnabled && autonomousMode) {
+        // Use autonomous mode
+        Utils.logInfo('🤖 Autonomous agent mode enabled - executing multi-step tasks automatically...');
+        Utils.logInfo(`   Effort level: ${effortLevel}`);
+        Utils.logInfo('   Press Ctrl+C to stop at any time');
         
-        const agent = new Agent({
-          confirmationEnabled: !options.autoApprove && appConfig.agent?.confirmationEnabled !== false,
-          autoApprove: options.autoApprove || appConfig.agent?.autoApprove === true,
-          maxActionsPerPrompt: appConfig.agent?.maxActionsPerPrompt || 10,
-          logger: appConfig.logger
+        result = await agent.startAutonomousSession(prompt, {
+          maxIterations: options.maxIterations || 10,
+          effort: effortLevel
         });
 
-        // Configure agent with security settings
-        if (appConfig.agent?.toolSecurity) {
-          agent.configure({ toolSecurity: appConfig.agent.toolSecurity });
-        }
-
-        const agentResult = await agent.processPrompt(prompt, response, {
-          provider,
-          model: options.model,
-          timestamp: new Date().toISOString()
+        // Display autonomous session results
+        displayAutonomousResults(result);
+        
+      } else if (agentEnabled) {
+        // Use enhanced agent mode
+        Utils.logInfo('🤖 Enhanced agent mode enabled - sophisticated reasoning and planning...');
+        Utils.logInfo(`   Effort level: ${effortLevel}`);
+        
+        result = await agent.processPrompt(prompt, {
+          effort: effortLevel,
+          autoApprove: options.autoApprove
         });
 
-        // Display response
-        console.log(Utils.formatResponse(response, provider));
-        
-        if (agentResult.executed && agentResult.results) {
-          Utils.logInfo('\n🔧 Agent executed the following actions:');
-          
-          agentResult.results.forEach((result, index) => {
-            const status = result.success ? '✅' : '❌';
-            console.log(`${status} ${result.action.type}: ${result.action.source}`);
-            
-            if (!result.success && result.result.error) {
-              Utils.logError(`   Error: ${result.result.error}`);
-            }
-          });
-        } else if (agentResult.actions.length > 0 && !agentResult.executed) {
-          Utils.logInfo(`\n🤖 Agent detected ${agentResult.actions.length} potential action(s) but did not execute them`);
-          if (agentResult.reason) {
-            Utils.logInfo(`   Reason: ${agentResult.reason}`);
-          }
-        }
-
-        // End agent session
-        await agent.endSession();
+        // Display enhanced results
+        displayEnhancedResults(result);
         
       } else {
-        // Standard mode - just display response
+        // Standard mode - just get LLM response
+        const spinner = Utils.createSpinner(`Sending request to ${provider}...`);
+        spinner.start();
+
+        const providers = new Providers(appConfig);
+        const response = await providers.call(provider, apiKey, prompt, {
+          model: options.model,
+          maxTokens: options.maxTokens,
+          temperature: options.temperature
+        });
+        
+        spinner.stop();
         console.log(Utils.formatResponse(response, provider));
       }
-      
+
+      // Cleanup
+      await agent.shutdown();
       Utils.logSuccess('Request completed successfully');
-      
+
     } catch (error) {
-      spinner.stop();
-      
       Utils.logError('Request failed: ' + error.message);
       
       // Provide helpful suggestions based on error type
@@ -285,6 +390,12 @@ async function handleMainCommand(promptArgs, options) {
       }
       
       process.exit(1);
+    } finally {
+      // Restore original handler
+      process.removeAllListeners('SIGINT');
+      if (originalHandler) {
+        process.on('SIGINT', originalHandler);
+      }
     }
 
   } catch (error) {
@@ -308,7 +419,7 @@ async function main() {
   // Configure commander
   program
     .name('visaire')
-    .description('CLI tool for interacting with Large Language Models')
+    .description('Enhanced CLI tool for interacting with Large Language Models')
     .version(packageJson.version)
     .option('-p, --provider <provider>', 'LLM provider (claude, gemini, gpt)')
     .option('-k, --api-key <key>', 'API key for the provider')
@@ -316,9 +427,14 @@ async function main() {
     .option('-t, --timeout <ms>', 'Request timeout in milliseconds', parseInt)
     .option('--max-tokens <tokens>', 'Maximum tokens in response', parseInt)
     .option('--temperature <temp>', 'Temperature for response generation', parseFloat)
-    .option('--agent', 'Enable agentic mode (default: true)')
-    .option('--no-agent', 'Disable agentic mode')
+    .option('--agent', 'Enable enhanced agent mode (default: true)')
+    .option('--no-agent', 'Disable agent mode')
+    .option('--autonomous', 'Enable autonomous multi-step execution')
     .option('--auto-approve', 'Auto-approve agent actions without confirmation')
+    .option('--effort <level>', 'Reasoning effort level (low, medium, high, maximum)', 'medium')
+    .option('--max-iterations <num>', 'Maximum iterations for autonomous mode', parseInt)
+    .option('--debug', 'Enable debug logging')
+    .option('--trace', 'Enable execution tracing')
     .option('--config', 'Show current configuration')
     .option('--config-example', 'Create example configuration file')
     .option('--config-reset', 'Reset configuration to defaults')

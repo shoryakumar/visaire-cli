@@ -1,7 +1,7 @@
 {
     "name": "visaire",
-    "version": "1.2.2",
-    "description": "A user-friendly CLI tool for interacting with large language models (Claude, Gemini, GPT) with zero-config setup",
+    "version": "2.0.0",
+    "description": "A fully autonomous agentic CLI tool for interacting with large language models (Claude, Gemini, GPT) that can execute multi-step tasks automatically",
     "main": "bin/visaire.js",
     "bin": {
         "visaire": "./bin/visaire.js"
@@ -24,7 +24,12 @@
         "gpt",
         "openai",
         "anthropic",
-        "google"
+        "google",
+        "autonomous",
+        "agent",
+        "automation",
+        "file-creation",
+        "multi-step"
     ],
     "author": "Shorya Kumar <shoryakumarr@gmail.com>",
     "license": "MIT",
@@ -32,17 +37,28 @@
         "node": ">=16.0.0"
     },
     "dependencies": {
-        "commander": "^11.1.0",
+        "@babel/parser": "^7.28.0",
+        "@babel/traverse": "^7.28.0",
+        "@babel/types": "^7.28.2",
+        "axios": "^1.11.0",
         "chalk": "^4.1.2",
+        "chokidar": "^3.6.0",
+        "commander": "^11.1.0",
+        "fs-extra": "^11.3.0",
+        "glob": "^10.4.5",
+        "handlebars": "^4.7.8",
+        "ignore": "^5.3.2",
+        "inquirer": "^8.2.6",
+        "joi": "^17.13.3",
         "ora": "^5.4.1",
-        "axios": "^1.6.2",
         "os": "^0.1.2",
-        "fs-extra": "^11.2.0",
-        "glob": "^10.3.10"
+        "semver": "^7.7.2",
+        "uuid": "^9.0.1",
+        "yaml": "^2.8.0"
     },
     "devDependencies": {
-        "jest": "^29.7.0",
-        "eslint": "^8.55.0"
+        "eslint": "^8.57.1",
+        "jest": "^29.7.0"
     },
     "repository": {
         "type": "git",
